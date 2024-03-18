@@ -58,6 +58,35 @@ class Manga(ABC):
         )
 
     @staticmethod
+    def get_slope_color(
+        image: Image.Image, y: int, y_offset_left: int, y_offset_right: int
+    ) -> tuple[int, int, int] | None:
+        """Get the color of the line at the given y coordinate which starts at y + y_offset_left and ends at y + y_offset_right."""
+        width, height = image.size
+        if y < 0 or y >= height:
+            return None
+
+        start = y + y_offset_left
+        end = y + y_offset_right
+
+        mid = (start + end) // 2
+        comparison_pixel = image.getpixel((width // 2, mid))
+
+        num_dissimilar = 0
+        for x in range(width):
+            # lerp y pos from start to end based on x percentage of width
+            x_percentage = x / width
+            y_pos = int((1 - x_percentage) * start + x_percentage * end)
+            if y_pos < 0 or y_pos >= height:
+                continue
+            if not Manga.is_pixel_similar(image.getpixel((x, y_pos)), comparison_pixel):
+                num_dissimilar += 1
+                if num_dissimilar > 5:
+                    return None
+
+        return comparison_pixel
+
+    @staticmethod
     def get_line_color(image: Image.Image, y: int) -> tuple[int, int, int] | None:
         """Get the color of the line at the given y coordinate."""
         width, height = image.size
@@ -81,23 +110,37 @@ class Manga(ABC):
         width, height = image.size
         y = min(y + 600, height)
 
+        def are_all_lines_black_or_white(lines: list[tuple[int, int, int] | None]) -> bool:
+            return all(Manga.is_pixel_similar(line, lines[2]) for line in lines) and Manga.is_pixel_black_or_white(
+                lines[0]
+            )
+
         # cut where the image is only one color and a minimum amount of pixels from the last cut (mostly only black or white)
         next_5_lines = [Manga.get_line_color(image, y + i) for i in range(5)]
+        next_5_slopes_left = [Manga.get_slope_color(image, y + i, -5, 5) for i in range(5)]
+        next_5_slopes_right = [Manga.get_slope_color(image, y + i, 5, -5) for i in range(5)]
+
         while y < height:
-            if all(Manga.is_pixel_similar(next_5_lines[i], next_5_lines[2]) for i in range(5)):
-                assert next_5_lines[0] is not None
-                if Manga.is_pixel_black_or_white(next_5_lines[0]):
-                    break
+            if any(
+                are_all_lines_black_or_white(lines) for lines in (next_5_lines, next_5_slopes_left, next_5_slopes_right)
+            ):
+                break
+
             y += 1
+
             next_5_lines.pop(0)
             next_5_lines.append(Manga.get_line_color(image, y + 4))
+            next_5_slopes_left.pop(0)
+            next_5_slopes_left.append(Manga.get_slope_color(image, y + 4, -5, 5))
+            next_5_slopes_right.pop(0)
+            next_5_slopes_right.append(Manga.get_slope_color(image, y + 4, 5, -5))
 
         return y
 
     @staticmethod
     def remove_leading_white_space(page: Image.Image) -> Image.Image:
         """Remove the leading white space from the image."""
-        lines_to_remove = 0
+        lines_to_remove = 0 if Manga.is_pixel_black_or_white(Manga.get_line_color(page, 2)) else 2
         while lines_to_remove < page.height:
             line_color = Manga.get_line_color(page, lines_to_remove)
             if not Manga.is_pixel_black_or_white(line_color):
