@@ -227,7 +227,7 @@ class Manga(ABC):
 
             page = Manga.remove_trailing_white_space(page)
 
-            if page.height < 10:
+            if page.height < 50:
                 # if no rows are left, skip the page
                 continue
 
