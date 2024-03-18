@@ -236,7 +236,7 @@ class Manga(ABC):
         return pages
 
     def process_images_from_chapter(self, chapter: str) -> list[Image.Image]:
-        chapter_folder = Path(self.title) / f'chapter_{chapter}'
+        chapter_folder = Path('mangas') / self.title / f'chapter_{chapter}'
 
         if chapter_folder.exists():
             # If already fetched, return the images

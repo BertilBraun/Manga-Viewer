@@ -6,7 +6,9 @@ The Manga Viewer Project is born out of a need for a more traditional and comfor
 
 ## Project Overview
 
-This application fetches online manga, which are typically presented in a long, scrollable format, and processes them into discrete, well-defined pages. These pages are then displayed two at a time, side by side, much like an open comic book. This not only makes for easier reading but also brings the familiar and beloved experience of reading a physical manga or comic book into the digital realm.
+This application transforms online manga, traditionally presented in a long, scrollable format, into a series of discrete, well-defined pages. Achieving this involves a complex process of identifying natural split points within the manga, such as blank lines or spaces between illustrations, to ensure each page is segmented appropriately for a traditional reading experience. This segmentation process is sophisticated, typically requiring around one minute per chapter due to the need for careful analysis and processing of the manga's content to determine these split points automatically.
+
+Once processed, these pages are then displayed two at a time, side by side, emulating the experience of reading an open comic book. This format not only facilitates easier reading but also revives the cherished and familiar experience of reading physical manga or comic books in the digital age.
 
 ## Comparing Views
 
@@ -62,3 +64,11 @@ python -m src.mangas.YOUR_MANGA_NAME
 - **Asynchronous Fetching**: Given that parsing and processing manga pages can be time-consuming—approximately one minute per chapter for tested mangas—subsequent chapters are fetched asynchronously. This ensures a smoother reading experience, minimizing wait times as readers progress through chapters.
 - **Prefetching Option**: For users who prefer having all chapters ready in advance, the application includes functionality to prefetch entire mangas. This feature loads all selected chapters before the reading session begins, ensuring uninterrupted reading.
 - **Selection View**: Upon launching, the application presents a selection view where users can choose their desired manga and chapter. This user-friendly interface ensures ease of access to a wide range of manga titles and their respective chapters.
+
+## Caching and Prefetching for Enhanced Efficiency
+
+Understanding that the processing time required for splitting manga chapters can be substantial, the application implements a caching mechanism. This means that once a chapter is processed, it is saved as a series of PNG files. Therefore, subsequent accesses to the same chapter bypass the processing stage, loading the pre-split pages directly, which significantly reduces wait times and enhances the user experience.
+
+Additionally, the application features a prefetching option. This functionality allows for the asynchronous fetching and processing of subsequent chapters in the background while the reader is engaged with the current chapter. If the next chapter has already been processed in a previous session, the application detects the cached version and loads it immediately, eliminating the need for reprocessing. This seamless background operation ensures that readers can continue to the next chapter without interruption or significant loading times.
+
+These strategic optimizations—caching and prefetching—underscore our commitment to providing a smooth, enjoyable reading experience that mirrors the simplicity and pleasure of reading traditional comic books, while also navigating the challenges presented by digital manga's typical format.
