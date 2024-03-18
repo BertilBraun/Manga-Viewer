@@ -10,7 +10,7 @@ class Manga(ABC):
     MIN_IMAGE_HEIGHT = 400
     SLOPE_THRESHOLD = 50
     NUM_EMPTY_LINES = 5
-    NUM_EMPTY_SLOPES = 30
+    NUM_EMPTY_SLOPES = 20
 
     def __init__(self, title: str):
         self.title = title
