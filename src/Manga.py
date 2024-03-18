@@ -7,6 +7,11 @@ from src.util import fetch, log
 
 
 class Manga(ABC):
+    MIN_IMAGE_HEIGHT = 400
+    SLOPE_THRESHOLD = 50
+    NUM_EMPTY_LINES = 5
+    NUM_EMPTY_SLOPES = 30
+
     def __init__(self, title: str):
         self.title = title
 
@@ -105,47 +110,87 @@ class Manga(ABC):
         return comparison_pixel
 
     @staticmethod
+    def are_percent_of_lines_black_or_white(lines: list[tuple[int, int, int] | None], percent: float) -> bool:
+        num_black_or_white = sum(Manga.is_pixel_black_or_white(line) for line in lines)
+        return num_black_or_white / len(lines) >= percent
+
+    @staticmethod
+    def are_all_lines_black_or_white(lines: list[tuple[int, int, int] | None]) -> bool:
+        return Manga.are_percent_of_lines_black_or_white(lines, 1.0)
+
+    @staticmethod
     def find_cut(image: Image.Image, y: int) -> int:
         """Find the best place to cut the image at the given y coordinate."""
         width, height = image.size
-        y = min(y + 600, height)
-
-        def are_all_lines_black_or_white(lines: list[tuple[int, int, int] | None]) -> bool:
-            return all(Manga.is_pixel_similar(line, lines[2]) for line in lines) and Manga.is_pixel_black_or_white(
-                lines[0]
-            )
+        y = min(y + Manga.MIN_IMAGE_HEIGHT, height)
 
         # cut where the image is only one color and a minimum amount of pixels from the last cut (mostly only black or white)
-        next_5_lines = [Manga.get_line_color(image, y + i) for i in range(5)]
-        next_5_slopes_left = [Manga.get_slope_color(image, y + i, -5, 5) for i in range(5)]
-        next_5_slopes_right = [Manga.get_slope_color(image, y + i, 5, -5) for i in range(5)]
+        next_lines = [Manga.get_line_color(image, y + i) for i in range(Manga.NUM_EMPTY_LINES)]
+        next_slopes_left = [
+            Manga.get_slope_color(image, y + i, -Manga.SLOPE_THRESHOLD, Manga.SLOPE_THRESHOLD)
+            for i in range(Manga.NUM_EMPTY_SLOPES)
+        ]
+        next_slopes_right = [
+            Manga.get_slope_color(image, y + i, Manga.SLOPE_THRESHOLD, -Manga.SLOPE_THRESHOLD)
+            for i in range(Manga.NUM_EMPTY_SLOPES)
+        ]
 
         while y < height:
-            if any(
-                are_all_lines_black_or_white(lines) for lines in (next_5_lines, next_5_slopes_left, next_5_slopes_right)
-            ):
+            if Manga.are_all_lines_black_or_white(next_lines):
+                break
+
+            if Manga.are_all_lines_black_or_white(next_slopes_left):
+                # fill in the gap with the color of the line
+                color = next_slopes_left[Manga.NUM_EMPTY_LINES // 2]
+                assert color is not None
+                for x in range(width // 2, width):
+                    for i in range(Manga.SLOPE_THRESHOLD):
+                        if y + i < height:
+                            image.putpixel((x, y + i), color)
+                break
+
+            if Manga.are_all_lines_black_or_white(next_slopes_right):
+                # fill in the gap with the color of the line
+                color = next_slopes_right[Manga.NUM_EMPTY_LINES // 2]
+                assert color is not None
+                for x in range(width // 2):
+                    for i in range(Manga.SLOPE_THRESHOLD):
+                        if y + i < height:
+                            image.putpixel((x, y + i), color)
                 break
 
             y += 1
 
-            next_5_lines.pop(0)
-            next_5_lines.append(Manga.get_line_color(image, y + 4))
-            next_5_slopes_left.pop(0)
-            next_5_slopes_left.append(Manga.get_slope_color(image, y + 4, -5, 5))
-            next_5_slopes_right.pop(0)
-            next_5_slopes_right.append(Manga.get_slope_color(image, y + 4, 5, -5))
+            next_lines.pop(0)
+            next_lines.append(Manga.get_line_color(image, y + Manga.NUM_EMPTY_LINES - 1))
+            next_slopes_left.pop(0)
+            next_slopes_left.append(
+                Manga.get_slope_color(
+                    image, y + Manga.NUM_EMPTY_SLOPES - 1, -Manga.SLOPE_THRESHOLD, Manga.SLOPE_THRESHOLD
+                )
+            )
+            next_slopes_right.pop(0)
+            next_slopes_right.append(
+                Manga.get_slope_color(
+                    image, y + Manga.NUM_EMPTY_SLOPES - 1, Manga.SLOPE_THRESHOLD, -Manga.SLOPE_THRESHOLD
+                )
+            )
 
         return y
 
     @staticmethod
     def remove_leading_white_space(page: Image.Image) -> Image.Image:
         """Remove the leading white space from the image."""
-        lines_to_remove = 0 if Manga.is_pixel_black_or_white(Manga.get_line_color(page, 2)) else 2
+        lines_to_remove = 0
+        next_lines = [Manga.get_line_color(page, i) for i in range(Manga.NUM_EMPTY_LINES)]
+
         while lines_to_remove < page.height:
-            line_color = Manga.get_line_color(page, lines_to_remove)
-            if not Manga.is_pixel_black_or_white(line_color):
+            if not Manga.are_percent_of_lines_black_or_white(next_lines, 0.5):
                 break
+
             lines_to_remove += 1
+            next_lines.pop(0)
+            next_lines.append(Manga.get_line_color(page, lines_to_remove + Manga.NUM_EMPTY_LINES - 1))
 
         return page.crop((0, lines_to_remove, page.width, page.height))
 
@@ -153,11 +198,15 @@ class Manga(ABC):
     def remove_trailing_white_space(page: Image.Image) -> Image.Image:
         """Remove the trailing white space from the image."""
         lines_to_remove = 0
+        next_lines = [Manga.get_line_color(page, page.height - i - 1) for i in range(Manga.NUM_EMPTY_LINES)]
+
         while lines_to_remove < page.height:
-            line_color = Manga.get_line_color(page, page.height - lines_to_remove - 1)
-            if not Manga.is_pixel_black_or_white(line_color):
+            if not Manga.are_percent_of_lines_black_or_white(next_lines, 0.5):
                 break
+
             lines_to_remove += 1
+            next_lines.pop(0)
+            next_lines.append(Manga.get_line_color(page, page.height - lines_to_remove - Manga.NUM_EMPTY_LINES))
 
         return page.crop((0, 0, page.width, page.height - lines_to_remove))
 
