@@ -30,6 +30,8 @@ class MangaViewer(tk.Tk):
 
     def create_widgets(self):
         self.canvas = tk.Canvas(self, background='white', width=self.canvas_width, height=self.canvas_height)
+        self.canvas.bind('<Motion>', self.on_hover)
+        self.canvas.bind('<Leave>', lambda _: self.display_page())
         self.canvas.pack()
 
         # Container for navigation buttons
@@ -69,16 +71,12 @@ class MangaViewer(tk.Tk):
 
         # Display the current page on the left label
         left_page_image = self.scale_image_to_screensize(self.pages[self.current_page])
-        left_photo = ImageTk.PhotoImage(image=left_page_image)
-        self.place_image(left_photo, 0.25, 0.5)
-        self.image_references.append(left_photo)
+        self.place_image(left_page_image, 0.25, 0.5)
 
         # If there is a next page, display it on the right label
         if self.current_page + 1 < len(self.pages):
             right_page_image = self.scale_image_to_screensize(self.pages[self.current_page + 1])
-            right_photo = ImageTk.PhotoImage(image=right_page_image)
-            self.place_image(right_photo, 0.75, 0.5)
-            self.image_references.append(right_photo)
+            self.place_image(right_page_image, 0.75, 0.5)
 
     def scale_image_to_screensize(self, image: Image.Image) -> Image.Image:
         """Scale and center the image based on the screen size."""
@@ -94,10 +92,12 @@ class MangaViewer(tk.Tk):
 
         return image
 
-    def place_image(self, image: ImageTk.PhotoImage, x_factor: float, y_factor: float):
-        x = self.canvas_width * x_factor - image.width() / 2
-        y = self.canvas_height * y_factor - image.height() / 2
-        self.canvas.create_image(x, y, image=image, anchor=tk.NW)
+    def place_image(self, image: Image.Image, x_factor: float, y_factor: float):
+        photo = ImageTk.PhotoImage(image=image)
+        x = self.canvas_width * x_factor - photo.width() / 2
+        y = self.canvas_height * y_factor - photo.height() / 2
+        self.canvas.create_image(x, y, image=photo, anchor=tk.NW)
+        self.image_references.append(photo)
 
     def fetch_and_process_next_chapter_async(self, chapter):
         # This is an async wrapper around your synchronous processing function.
@@ -147,3 +147,47 @@ class MangaViewer(tk.Tk):
         else:
             self.next_button.config(text='Next')
             self.prev_button.config(text='Previous')
+
+    def on_hover(self, event):
+        # Clear the canvas and display the current page
+        self.display_page()
+        center_x = self.canvas_width / 2
+        if event.x < 50 or event.x > self.canvas_width - 50 or center_x - 50 < event.x < center_x + 50:
+            return
+
+        # Determine which half of the canvas the mouse is over
+        if event.x < self.canvas_width / 2:
+            # Hovering over the left image
+            if self.current_page < len(self.pages):
+                self.zoom_and_display_image(self.pages[self.current_page], event.y, 0.25)
+        else:
+            # Hovering over the right image
+            if self.current_page + 1 < len(self.pages):
+                self.zoom_and_display_image(self.pages[self.current_page + 1], event.y, 0.75)
+
+    def zoom_and_display_image(self, image: Image.Image, mouse_y: float, x_offset: float) -> None:
+        y_fraction = mouse_y / self.canvas_height  # Calculate the Y-fraction of the mouse position
+
+        screen_width = self.canvas_width // 2 - 100  # Allocate half the canvas width for each page
+        screen_height = self.canvas_height
+
+        # Resize the image to fill the width
+        img_width, img_height = image.size
+        scale_factor = screen_width / img_width
+        scaled_height = int(img_height * scale_factor)
+        scaled_image = image.resize((screen_width, scaled_height))
+
+        # Determine the Y-coordinate in the scaled image that corresponds to the mouse Y-fraction
+        target_y = y_fraction * scaled_height
+
+        # Calculate the crop top to center the crop around the target_y, while ensuring it doesn't exceed the image boundaries
+        crop_height = min(screen_height, scaled_height)
+        crop_top = max(0, target_y - crop_height / 2)
+        crop_top = min(scaled_height - crop_height, crop_top)
+        crop_top = int(crop_top)
+
+        # Crop the scaled image vertically based on the calculated top position
+        cropped_image = scaled_image.crop((0, crop_top, screen_width, crop_top + crop_height))
+
+        # Place the image on the canvas
+        self.place_image(cropped_image, x_offset, 0.5)
