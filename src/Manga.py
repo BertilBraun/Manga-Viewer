@@ -110,13 +110,14 @@ class Manga(ABC):
         return comparison_pixel
 
     @staticmethod
-    def are_percent_of_lines_black_or_white(lines: list[tuple[int, int, int] | None], percent: float) -> bool:
-        num_black_or_white = sum(Manga.is_pixel_black_or_white(line) for line in lines)
-        return num_black_or_white / len(lines) >= percent
+    def are_percent_of_lines_equal(lines: list[tuple[int, int, int] | None], percent: float) -> bool:
+        comparison_pixel = lines[0]
+        num_equal = sum(Manga.is_pixel_similar(line, comparison_pixel) for line in lines)
+        return num_equal / len(lines) >= percent
 
     @staticmethod
-    def are_all_lines_black_or_white(lines: list[tuple[int, int, int] | None]) -> bool:
-        return Manga.are_percent_of_lines_black_or_white(lines, 1.0)
+    def are_all_lines_equal(lines: list[tuple[int, int, int] | None]) -> bool:
+        return Manga.are_percent_of_lines_equal(lines, 1.0)
 
     @staticmethod
     def find_cut(image: Image.Image, y: int) -> int:
@@ -136,10 +137,10 @@ class Manga(ABC):
         ]
 
         while y < height:
-            if Manga.are_all_lines_black_or_white(next_lines):
+            if Manga.are_all_lines_equal(next_lines):
                 break
 
-            if Manga.are_all_lines_black_or_white(next_slopes_left):
+            if Manga.are_all_lines_equal(next_slopes_left):
                 # fill in the gap with the color of the line
                 color = next_slopes_left[Manga.NUM_EMPTY_LINES // 2]
                 assert color is not None
@@ -149,7 +150,7 @@ class Manga(ABC):
                             image.putpixel((x, y + i), color)
                 break
 
-            if Manga.are_all_lines_black_or_white(next_slopes_right):
+            if Manga.are_all_lines_equal(next_slopes_right):
                 # fill in the gap with the color of the line
                 color = next_slopes_right[Manga.NUM_EMPTY_LINES // 2]
                 assert color is not None
@@ -185,7 +186,7 @@ class Manga(ABC):
         next_lines = [Manga.get_line_color(page, i) for i in range(Manga.NUM_EMPTY_LINES)]
 
         while lines_to_remove < page.height:
-            if not Manga.are_percent_of_lines_black_or_white(next_lines, 0.5):
+            if not Manga.are_percent_of_lines_equal(next_lines, 0.5):
                 break
 
             lines_to_remove += 1
@@ -201,7 +202,7 @@ class Manga(ABC):
         next_lines = [Manga.get_line_color(page, page.height - i - 1) for i in range(Manga.NUM_EMPTY_LINES)]
 
         while lines_to_remove < page.height:
-            if not Manga.are_percent_of_lines_black_or_white(next_lines, 0.5):
+            if not Manga.are_percent_of_lines_equal(next_lines, 0.5):
                 break
 
             lines_to_remove += 1
