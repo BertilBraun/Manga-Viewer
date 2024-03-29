@@ -126,6 +126,9 @@ class MangaViewer(tk.Tk):
             self.chapter_input.delete(0, tk.END)
             self.chapter_input.insert(0, self.manga.get_previous_chapter(self.chapter))
             self.fetch_chapter()
+            # move to the last page
+            self.current_page = len(self.pages) - 2 if len(self.pages) % 2 == 0 else len(self.pages) - 1
+            self.display_page()
 
         if self.current_page == 0:
             self.prev_button.config(text='Previous Chapter')
