@@ -1,4 +1,3 @@
-from math import e
 import tkinter as tk
 from tkinter import ttk
 from typing import Callable
