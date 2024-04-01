@@ -27,6 +27,7 @@ class MangaViewer(tk.Tk):
         self.bind('<Left>', lambda _: self.prev_page())  # Bind left arrow key to previous page
         self.bind('<Right>', lambda _: self.next_page())  # Bind right arrow key to next page
         self.bind('<Configure>', self.on_resize)
+        self.bind('<F11>', self.toggle_fullscreen)
 
         self.create_widgets()
         self.fetch_chapter()
@@ -219,3 +220,12 @@ class MangaViewer(tk.Tk):
         finally:
             # Re-enable the handler
             self.after(100, lambda: self.bind('<Configure>', self.on_resize))
+
+    def toggle_fullscreen(self, event=None):
+        # Toggle between full screen and windowed mode
+        self.fullscreen = not getattr(self, 'fullscreen', False)  # Initialize fullscreen attribute if it doesn't exist
+        self.attributes('-fullscreen', self.fullscreen)
+        # Optionally, disable window decorations (e.g., title bar) in full-screen mode
+        # This line can be commented out or adjusted based on your preference
+        self.overrideredirect(self.fullscreen)
+        return 'break'  # Prevent propagation of the event
