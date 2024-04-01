@@ -72,3 +72,51 @@ Understanding that the processing time required for splitting manga chapters can
 Additionally, the application features a prefetching option. This functionality allows for the asynchronous fetching and processing of subsequent chapters in the background while the reader is engaged with the current chapter. If the next chapter has already been processed in a previous session, the application detects the cached version and loads it immediately, eliminating the need for reprocessing. This seamless background operation ensures that readers can continue to the next chapter without interruption or significant loading times.
 
 These strategic optimizations—caching and prefetching—underscore our commitment to providing a smooth, enjoyable reading experience that mirrors the simplicity and pleasure of reading traditional comic books, while also navigating the challenges presented by digital manga's typical format.
+
+## Development
+
+To create a new manga, you can use the `Manga` class from `src.mangas.manga`. This class provides a simple interface for creating new manga objects, which can then be used to fetch and process manga chapters. The following code snippet demonstrates how to create a new manga object:
+
+```python
+class SoloLeveling(Manga):
+    BASE_URL = 'https://www.solo-leveling-manhwa.com/solo-leveling-chapter-{chapter}'
+
+    def __init__(self):
+        super().__init__('Solo Leveling')
+
+    def get_image_urls(self, chapter: str) -> list[str]:
+        response = fetch(SoloLeveling.BASE_URL.format(chapter=chapter))
+        soup = BeautifulSoup(response, 'html.parser')
+
+        image_tags = soup.find_all('img')
+
+        image_urls = [img['src'] for img in image_tags if 'imgur' in img['src']]
+        return image_urls
+
+    def get_all_chapters(self) -> list[str]:
+        return [str(i) for i in range(201)]
+```
+
+In this example, the `SoloLeveling` class inherits from the `Manga` class and provides implementations for the `get_image_urls` and `get_all_chapters` methods. The `get_image_urls` method fetches the image URLs for a given chapter, while the `get_all_chapters` method returns a list of all available chapters.
+
+After creating a new manga class, you can prefetch all chapters by running:
+
+```bash
+python -m src.mangas.SoloLeveling
+```
+
+To add the new manga to the selection view, import the class in `src.mangas.__main__.py` and add it to the `MangaSelector` initializer list.
+
+### Building an Executable
+
+To build an executable for the Manga Viewer, you can use PyInstaller. First, install PyInstaller:
+
+```bash
+pip install pyinstaller
+```
+
+Then, navigate to the project directory and run:
+
+```bash
+pyinstaller --onefile --windowed src/__main__.py
+```
