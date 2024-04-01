@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import ttk
+from typing import Callable
 from PIL import Image, ImageTk
 from multiprocessing import Process
 from src.Manga import Manga
@@ -71,12 +72,12 @@ class MangaViewer(tk.Tk):
 
         # Display the current page on the left label
         left_page_image = self.scale_image_to_screensize(self.pages[self.current_page])
-        self.place_image(left_page_image, 0.25, 0.5)
+        self.place_image(left_page_image, 0.25, 0.5, self.prev_page)
 
         # If there is a next page, display it on the right label
         if self.current_page + 1 < len(self.pages):
             right_page_image = self.scale_image_to_screensize(self.pages[self.current_page + 1])
-            self.place_image(right_page_image, 0.75, 0.5)
+            self.place_image(right_page_image, 0.75, 0.5, self.next_page)
 
     def scale_image_to_screensize(self, image: Image.Image) -> Image.Image:
         """Scale and center the image based on the screen size."""
@@ -92,12 +93,15 @@ class MangaViewer(tk.Tk):
 
         return image
 
-    def place_image(self, image: Image.Image, x_factor: float, y_factor: float):
+    def place_image(self, image: Image.Image, x_factor: float, y_factor: float, click_callback: Callable[[], None]):
         photo = ImageTk.PhotoImage(image=image)
         x = self.canvas_width * x_factor - photo.width() / 2
         y = self.canvas_height * y_factor - photo.height() / 2
-        self.canvas.create_image(x, y, image=photo, anchor=tk.NW)
+
+        image_tag = self.canvas.create_image(x, y, image=photo, anchor=tk.NW)
         self.image_references.append(photo)
+
+        self.canvas.tag_bind(image_tag, '<Button-1>', lambda _: click_callback(), add=True)
 
     def fetch_and_process_next_chapter_async(self, chapter):
         # This is an async wrapper around your synchronous processing function.
@@ -162,13 +166,15 @@ class MangaViewer(tk.Tk):
         if event.x < self.canvas_width / 2:
             # Hovering over the left image
             if self.current_page < len(self.pages):
-                self.zoom_and_display_image(self.pages[self.current_page], event.y, 0.25)
+                self.zoom_and_display_image(self.pages[self.current_page], event.y, 0.25, self.prev_page)
         else:
             # Hovering over the right image
             if self.current_page + 1 < len(self.pages):
-                self.zoom_and_display_image(self.pages[self.current_page + 1], event.y, 0.75)
+                self.zoom_and_display_image(self.pages[self.current_page + 1], event.y, 0.75, self.next_page)
 
-    def zoom_and_display_image(self, image: Image.Image, mouse_y: float, x_offset: float) -> None:
+    def zoom_and_display_image(
+        self, image: Image.Image, mouse_y: float, x_offset: float, click_callback: Callable[[], None]
+    ) -> None:
         y_fraction = mouse_y / self.canvas_height  # Calculate the Y-fraction of the mouse position
 
         screen_width = self.canvas_width // 2 - 100  # Allocate half the canvas width for each page
@@ -193,4 +199,4 @@ class MangaViewer(tk.Tk):
         cropped_image = scaled_image.crop((0, crop_top, screen_width, crop_top + crop_height))
 
         # Place the image on the canvas
-        self.place_image(cropped_image, x_offset, 0.5)
+        self.place_image(cropped_image, x_offset, 0.5, click_callback)
