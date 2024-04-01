@@ -1,3 +1,4 @@
+from math import e
 import tkinter as tk
 from tkinter import ttk
 from typing import Callable
@@ -15,9 +16,9 @@ class MangaViewer(tk.Tk):
         # Set the window to be maximized
         self.state('zoomed')
         self.configure(bg='white')  # Set the background color of the window to white
+
         self.canvas_width = self.winfo_screenwidth()
         self.canvas_height = self.winfo_screenheight() - 120
-
         self.image_references = []
         self.pages = []
         self.current_page = 0
@@ -25,6 +26,7 @@ class MangaViewer(tk.Tk):
 
         self.bind('<Left>', lambda _: self.prev_page())  # Bind left arrow key to previous page
         self.bind('<Right>', lambda _: self.next_page())  # Bind right arrow key to next page
+        self.bind('<Configure>', self.on_resize)
 
         self.create_widgets()
         self.fetch_chapter()
@@ -200,3 +202,20 @@ class MangaViewer(tk.Tk):
 
         # Place the image on the canvas
         self.place_image(cropped_image, x_offset, 0.5, click_callback)
+
+    def on_resize(self, event):
+        # Disable the handler to prevent feedback loop
+        self.unbind('<Configure>')
+        try:
+            # Update canvas size accounting for non-content area if necessary
+            self.canvas_width = self.winfo_width()
+            self.canvas_height = self.winfo_height() - 50  # Adjust based on your UI layout
+
+            # Adjust the canvas widget size
+            self.canvas.config(width=self.canvas_width, height=self.canvas_height)
+
+            # Redisplay the current page to adjust it to the new size
+            self.display_page()
+        finally:
+            # Re-enable the handler
+            self.after(100, lambda: self.bind('<Configure>', self.on_resize))
